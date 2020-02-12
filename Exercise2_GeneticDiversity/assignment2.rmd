@@ -1,0 +1,402 @@
+---
+title: "Assignment 2"
+author: "Stefano Pellegrini"
+date: "2/10/2020"
+output: pdf_document
+---
+# Overview of the different data sets along with a brief idea of what the PLINK format.
+
+### Q1: Before we get started, why do you think we chose chromosome 22?
+
+* It is the smallest one.
+
+Look CEU.map and CEU.ped
+```{bash}
+less -S CEU.map | head
+# less -S CEU.ped  # here it crashes,
+```
+
+It is not clear what are the genotypes in the .ped file. There are two markers for each SNP and all markers should be biallelic. But it is not clear what the nucletide letter rapresent, if for example there is AA GG AC, what's the meaning of that?
+
+### Q2: What is the position of the first SNP?
+
+```{bash}
+less -S Pan_troglodytes.map | head -n 1
+```
+
+* The position of the first SNP is 14436989, and it is in chromosome 22.
+
+### Q3: What information is in the two file formats (MAP and PED)? 
+
+* .map gives you info about the position of the SNP and .pet gives you info about the genotype of the SNP
+
+### Q4: How many SNPs are there in total for the chimpanzees and the human populations? Should you count the lines in the MAP or the PED file?
+
+```{bash}
+wc -l Pan_troglodytes.map
+wc -l Pan_troglodytes.ped # .ped format is weird and both head and wc work in a weird way
+wc -l CEU.map
+wc -l YRI.map
+```
+
+* Chimpanzees: 509051 
+* Human (CEU) = Human (YRI): 494328 
+
+### Q5: In this format, we will have no information about the certainty of SNP calls. Is it reasonable to assume that e.g. read depth might influence the identified number of SNPs? And would you expect more or less SNPs to be identified, than the true number of SNPs, when using low depth data?
+
+* We should use high depth data that cover all the positions. I would expect to find less SNPs when using low depth data compared to high depth data.
+
+# We can start to analyze our data.
+
+Expected heterozygosity: $H_e = 2P(1-P)$ assuming HWE.  
+We will use PLINK and R to calculate the allele frequency of the minor allele for each variable site.
+
+```{bash eval=FALSE}
+# Plink commands (run them in the server)
+plink --noweb --file Pan_troglodytes --freq --out Pan_troglodytes
+plink --noweb --file Pt_ellioti --freq --out Pt_ellioti
+plink --noweb --file Pt_schwein --freq --out Pt_schwein
+plink --noweb --file Pt_troglo --freq --out Pt_troglo
+plink --noweb --file Pt_verus --freq --out Pt_verus
+plink --noweb --file CEU --freq --out CEU
+plink --noweb --file YRI --freq --out YRI
+```
+
+```{bash}
+cat Pan_troglodytes.frq | grep -v NA > Pan_troglodytes_noNA.frq
+cat Pt_ellioti.frq | grep -v NA > Pt_ellioti_noNA.frq
+cat Pt_schwein.frq | grep -v NA > Pt_schwein_noNA.frq
+cat Pt_troglo.frq | grep -v NA > Pt_troglo_noNA.frq
+cat Pt_verus.frq | grep -v NA > Pt_verus_noNA.frq
+cat CEU.frq | grep -v NA > CEU_noNA.frq
+cat YRI.frq | grep -v NA > YRI_noNA.frq
+```
+
+
+### Q6: Try and look in the Pan_troglodytes.frq file, what information do you get?
+
+```{bash}
+less Pan_troglodytes.frq | head
+```
+
+* look at file format documentation https://www.cog-genomics.org/plink2/formats#frq  
+* MAF = minor allele frequency = frequency allele 1, frequency allele 2 = 1 MAF.
+
+### Q7: We use the command “grep -v NA” and write the output to a new file, what does this command do, and why do you think we do this?
+
+```{bash}
+grep -v NA Pan_troglodytes.frq > Pan_troglodytes_noNA.frq # remove rows with NA values
+wc -l Pan_troglodytes_noNA.frq
+wc -l Pan_troglodytes.frq
+```
+
+# We now use R to read the frequency output from PLINK.
+
+```{r}
+# Read in each of the frequency files
+pt <- read.table("Pan_troglodytes_noNA.frq", h = T)
+ellio <- read.table("Pt_ellioti_noNA.frq", h = T)
+schwein <- read.table("Pt_schwein_noNA.frq", h = T)
+troglo <- read.table("Pt_troglo_noNA.frq", h = T)
+verus <- read.table("Pt_verus_noNA.frq", h = T)
+ceu <- read.table("CEU_noNA.frq", h = T)
+yri <- read.table("YRI_noNA.frq", h = T)
+```
+
+```{r}
+# Function for estimating the expected heterozygosity 
+het <- function(x) {
+  2 * x * (1 - x)
+}
+```
+
+```{r}
+# Remove all fixed alleles in each population
+verus <- verus[verus[, "MAF"] > 0,]                      # what does it means?
+ellio <- ellio[ellio[, "MAF"] > 0,]
+schwein <- schwein[schwein[, "MAF"] > 0,]
+troglo <- troglo[troglo[, "MAF"] > 0,]
+pt <- pt[pt[, "MAF"] > 0,]
+yri <- yri[yri[, "MAF"] > 0,]
+ceu <- ceu[ceu[, "MAF"] > 0,]
+```
+
+```{r}
+# Add columns with the position on the chromosome and the pi-values for each polymorphic SNP
+verus <-
+  cbind(verus, 
+        position = as.numeric(gsub("22:", '', verus[, "SNP"])))
+verus <-
+  cbind(verus, 
+        pi = het(verus$MAF) * 
+             (length(verus$MAF) / 
+                (verus[length(verus[, "position"]), "position"] - verus[1, "position"])))
+
+# Pan troglodytes elliotti
+ellio <-
+  cbind(ellio, 
+        position = as.numeric(gsub("22:", '', ellio[, "SNP"])))
+ellio <-
+  cbind(ellio, 
+        pi = het(ellio$MAF) * 
+             (length(ellio$MAF) / 
+                (ellio [length(ellio[, "position"]), "position"] - ellio [1, "position"])))
+
+# Pan troglodytes schweinfurthii
+schwein <-
+  cbind(schwein, 
+        position = as.numeric(gsub("22:", '', schwein[, "SNP"])))
+schwein <-
+  cbind(schwein, 
+        pi = het(schwein$MAF) * 
+             (length(schwein$MAF) / 
+                (schwein [length(schwein[, "position"]), "position"] - schwein [1, "position"])))
+
+# Pan troglodytes troglodytes
+troglo <-
+  cbind(troglo, 
+        position = as.numeric(gsub("22:", '', troglo[, "SNP"])))
+troglo <-
+  cbind(troglo, 
+        pi = het(troglo$MAF) * 
+             (length(troglo$MAF) / 
+                (troglo [length(troglo[, "position"]), "position"] - troglo [1, "position"])))
+
+# Pan troglodytes
+pt <- cbind(pt,
+            position = as.numeric(gsub("22:", '', pt[, "SNP"])))
+pt <-
+  cbind(pt,
+        pi = het(pt$MAF) *
+             (length(pt$MAF) /
+                (pt [length(pt[, "position"]), "position"] - pt[1, "position"])))
+```
+
+```{r}
+# No obvious positions for yri and ceu plus a guestimate 
+# on the length of the included chromosome
+yri <- cbind(yri, pi = het(yri$MAF) * (length(yri$MAF) / (35191058)))
+ceu <- cbind(ceu, pi = het(ceu$MAF) * (length(ceu$MAF) / (35191950)))
+```
+
+```{r}
+# Making a barplot with the nucleotide diversity
+par(mfrow = c(1, 1))
+val = c(mean(pt$pi),
+        mean(ellio$pi),
+        mean(schwein$pi),
+        mean(troglo$pi),
+        mean(verus$pi),
+        mean(ceu$pi),
+        mean(yri$pi)
+        )
+barplot(val,
+        ylim = c(0.000, 0.0015),
+        ylab = "pi",
+        xlab = "Population",
+        names.arg = c("pt", "ellio", "schwein", "trogl", "verus", "ceu", "yri")
+        )
+```
+
+### Q8: In the R function (het), explain what [2 * x *(1-x)] calculates.
+
+* Calculate the heterozigosity coefficients, $H_e = 2p(1-p)$.
+
+### Q9: What is the average heterozygosity for the 7 populations? (read from plot or type mean(val))
+
+```{r}
+mean(val)
+```
+
+
+### Q10: Give a reason why the two human populations differ in heterozygosity?
+
+* Founder and bottleneck events due to out of africa migration.
+
+### Q11: Why does the combined chimpanzee population (“Pan_troglodytes”) have a higher average heterozygosity than each of the subspecies? 
+
+* "Something" affect different populations in different way, each population has some unique mutation and if we treat them as just one we are adding all the mutation together
+
+### Q12: Will rare mutations more often be in heterozygous individuals or homozygous individuals?
+
+* If a mutation affects the phenotype it is easy that occurs in heterozygotes because it is very unlikely that it happens two times in the same indivdiual 
+
+### Q13: From your knowledge and from the amount of average heterozygosity, what population would you expect to have the highest N_e? And the lowest?
+
+* Looking at the histogram, the highest population size is trogl (what about pt?), the smallest is verus.
+
+### Estimating the nucleotide diversity along the chromosome.
+
+```{r}
+## Function for generating sliding windows
+slidingwindowplot <- function(mainv, xlabv, ylabv, ylimv, window.size,
+                              step.size, input_x_data, input_y_data){
+    if (window.size > step.size)
+      step.positions  <- seq(window.size / 2 + 1, 
+                             length(input_x_data) - window.size / 2, 
+                             by = step.size)
+    else
+      step.positions  <- seq(step.size / 2 + 1, 
+                             length(input_x_data) - step.size, 
+                             by = step.size)
+    n <- length(step.positions)
+    means_x <- numeric(n)
+    means_y <- numeric(n)
+    for (i in 1:n) {
+      chunk_x <- input_x_data[(step.positions[i] - window.size / 2):
+                              (step.positions[i] + window.size - 1)]
+      means_x[i] <- mean(chunk_x, na.rem = TRUE)
+      chunk_y <- input_y_data[(step.positions[i] - window.size / 2):
+                              (step.positions[i] + window.size - 1)]
+      means_y[i] <- mean(chunk_y, na.rem = TRUE)
+    }
+	
+    plot(means_x, 
+         means_y,
+         type = "b",
+         main = mainv,
+         xlab = xlabv,
+         ylab = ylabv,
+         ylim = ylimv,
+         cex = 0.25,
+         pch = 20,
+         cex.main = 0.75
+         )
+    vec <- c(0.025, 0.5, 0.975)
+    zz <- means_y[!is.na(means_y)]
+    abline(h = quantile(zz, 0.025, na.rem = TRUE), col = "blue")
+    abline(h = quantile(zz, 0.925, na.rem = TRUE), col = "blue")
+    abline(h = mean(input_y_data))
+}
+```
+
+```{r}
+## Plotting the nucleotide diversity in sliding windows across the chromosome.
+## R is doing strange things on the graphics window; therefore, we plot it on
+## a pdf file. (In the server you can view it with evidence from terminal)
+pdf ("nucleotide_diversity_in_4_subspecies.pdf")
+par(mfrow = c(2, 2))
+windowsize <- 3000
+steps <- 100
+
+# Pan troglodytes verus
+mainvv = paste(
+  "verus pi = ", format(mean(verus$pi, na.rem = TRUE), digits = 3),
+  "SNPs =", length(verus$pi),
+  "Win: ", windowsize,
+  "Step: ", steps
+)
+slidingwindowplot(
+  mainv = mainvv,
+  xlab = expression(paste("Position (x ", 10 ^ 6, ")")),
+  ylab = expression(paste("pi")),
+  ylimv = c(0.00, 0.0016),
+  window.size = windowsize / 4,
+  step.size = steps,
+  input_x_data = verus$position / 1000000,
+  input_y_data = verus$pi
+)
+
+# Pan troglodytes ellioti
+mainvv = paste(
+  "ellio pi = ", format(mean(ellio$pi, na.rem = TRUE), digits = 3),
+  "SNPs =", length(ellio$pi),
+  "Win: ", windowsize,
+  "Step: ", steps
+)
+slidingwindowplot(
+  mainv = mainvv,
+  xlab = expression(paste("Position (x ", 10 ^ 6, ")")),
+  ylab = expression(paste("pi")),
+  ylimv = c(0.000, 0.0016),
+  window.size = windowsize / 3,
+  step.size = steps,
+  input_x_data = ellio$position / 1000000,
+  input_y_data = ellio$pi
+)
+
+# Pan troglodytes schweinfurthii
+mainvv = paste(
+  "schwein pi = ", format(mean(schwein$pi, na.rem = TRUE), digits = 3),
+  "SNPs =", length(schwein$pi),
+  "Win: ", windowsize,
+  "Step: ", steps
+)
+slidingwindowplot(
+  mainv = mainvv,
+  xlab = expression(paste("Position (x ", 10 ^ 6, ")")),
+  ylab = expression(paste("pi")),
+  ylimv = c(0.000, 0.0016),
+  window.size = windowsize,
+  step.size = steps,
+  input_x_data = schwein$position / 1000000,
+  input_y_data = schwein$pi
+)
+
+# Pan troglodytes troglodytes
+mainvv = paste(
+  "troglo pi =  ", format(mean(troglo$pi, na.rem = TRUE), digits = 3),
+  "SNPs =", length(troglo$pi),
+  "Win: ", windowsize,
+  "Step: ", steps
+)
+slidingwindowplot(
+  mainv = mainvv,
+  xlab = expression(paste("Position (x ", 10 ^ 6, ")")),
+  ylab = expression(paste("pi")),
+  ylimv = c(0.00, 0.0016),
+  window.size = windowsize,
+  step.size = steps,
+  input_x_data = troglo$position / 1000000,
+  input_y_data = troglo$pi
+)
+```
+
+Take a look at the output:
+
+```{bash eval=FALSE}
+# To see the pdf (not working in my local machine)
+evince nucleotide_diversity_in_4_subspecies.pdf
+```
+
+### Q14: Why is there a difference in pi along the chromosome?
+* $pi$ = nucleotide diversity. Natural selection is the main reason for the difference. There are sites that are more conserved and sites that are less conserved, probably because the more conserved sites are essential genes.
+
+### Q15: Why is the pattern different among the populations?
+* Different populations have different patterns (look at the peaks) because different selective pressures will affect the different populations in different ways.
+
+# Estimating inbreeding coefficient pr. individual
+
+```{bash eval=FALSE}
+# Plink commands (run them in the server)
+plink --file Pt_verus --het --out Pt_verus
+plink --file Pt_ellioti --het --out Pt_ellioti
+plink --file Pt_schwein --het --out Pt_schwein
+plink --file Pt_troglo --het --out Pt_troglo
+plink --file YRI --het --out YRI
+plink --file CEU --het --out CEU
+plink --file Pan_troglodytes --het --out Pan_troglodytes
+```
+
+### Q16: Is there a sign of inbreeding in some of the humans?
+```{bash}
+less CEU.het
+less YRI.het
+```
+
+Not really, they are close to 0 in CEU and they are negative in YRI.
+
+### Q18: If so, how related do they seem to be?
+
+* 0.25 brother and sister, 0.1 < x > 0.2 cousins.
+
+### Q19: Now take a look at the total sample of the combined set of chimpanzees (“Pan_troglodytes.het”). What is going on here? Why are the inbreeding coefficients so high?
+
+```{bash}
+less Pan_troglodytes.het | head -n 20
+```
+
+
+* If we look them all together they look all very inbreed (very homozygous, large F [can't see f in RMD output]), we are mixing population that are different populated (we are not considering populaton structure) and we might come to the wrong conclusion and so we are overestimating homozygosity.
+
+# TO DO:instal plink and evince in virtual machine
