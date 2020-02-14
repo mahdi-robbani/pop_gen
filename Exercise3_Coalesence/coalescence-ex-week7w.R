@@ -1,3 +1,5 @@
+###install.packages("ape")
+
 #Example of one cycle
 nodes = c(1,2,3,4,5) # make the list and call it nodes
 nodes # print the list
@@ -19,6 +21,7 @@ nodes # print the new list
 source("simulatecoalescencetrees.R")
 
 #Run script
+library(ape)
 par (mfrow=c(2,5))
 for (i in c(1:10)){
   print("New Tree")

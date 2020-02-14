@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1581674208405.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1376505678",
+    "id" : "8FDE6D96",
+    "lastKnownWriteTime" : 1581674008,
+    "last_content_update" : 1581674008,
+    "path" : "C:/Users/USER/OneDrive - Københavns Universitet/popgen/pop_gen/Exercise3_Coalesence/simulatecoalescencetrees.R",
+    "project_path" : "Exercise3_Coalesence/simulatecoalescencetrees.R",
+    "properties" : {
+        "cursorPosition" : "0,0",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
