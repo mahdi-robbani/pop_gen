@@ -29,3 +29,11 @@ for (i in c(1:10)){
   ct<-read.tree(text=yourtree);plot(ct,cex=1.5);add.scale.bar(y=1.2,x=0.2,cex = 2,col = "red",lcol="red",lwd=3)
   print(" ")
 }
+
+#################################Afternoon
+library(coalesceR) #package not avilable, I guess run on server
+tree<-sim.tree('hudson',10,100000,100000, 1) # last argument: time change for pop size. BUILD A COALESCENT RELATION. TIME IS IN COALESCENT UNITS = 2N
+draw.tree(tree)
+mut<-add.mutations(tree, 20*1e-5) # change of mutation rate → we observe copies having groups of common mutations
+
+# we have a coalescent tree + information about a mutation (in color + red dots along the tree for higher rates)
