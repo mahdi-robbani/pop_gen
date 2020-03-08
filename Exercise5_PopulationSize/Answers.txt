@@ -1,0 +1,79 @@
+1_clean_data
+
+1. Check the text produced by running plink on your files. What are the sample sizes and number of loci used in the analysis of each population, why do they differ?
+
+Koppen_odd: 2018 variants and 24 samples
+Koppen_even: 1662 variants and 24 samples
+Nome_odd: 1669 variants and 24 samples
+Nome_even: 1111 variants and 20 samples
+Puget_odd: 1789 variants and 24 samples
+Puget_even: 1091 variants and 24 samples
+The genotyping rate is different for different populations, there are different amounts of missing data in each individual’s sequence data.
+
+2. Check the text produced by running plink on your files. What are the reasons that some variants are removed in this filtering step? Why do you think it’s important to remove them? See here for an explanation of all the filters implemented in plink: https://www.cog-genomics.org/plink/1.9/filter
+
+We want to filter for variants that are unlikely to be true polymorphisms or whose allele frequencies may be misspecified. Variants that fail the Hardy-Weinberg exact test have a strong excess or depletion of heterozygotes, which is an indication of lots of sequencing error at a particular locus. Variants with too low of a minor allele frequency are more likely than other sites to be sequencing errors at an invariant site.
+ 
+
+3. Why is it important to separate before population when calculating LD? 
+Because LD will be artificially increased in the presence of population stratification, i.e. the two-locus Wahlund effect.
+
+2_do_PCA & 3_plot_PCA
+
+1. What is shown in the first few axes of the PCA projection? What does each dot represent?
+
+The first few axes represent the strongest components of variation in our genetic data. Each dot is a projection of each of the genotyped individuals into these axes.
+ 2. Describe the differences between the two PCAs (before and after filtering). How are they different? How are they similar?
+
+The population clusters are closer to each other, but their relative positions remain roughly the same.
+
+3. Why do you think there is a Puget_EVEN individual that is projected near the the Koppen_EVEN individuals? Give a possible biological explanation. Give a possible laboratory explanation
+
+Biological explanation: recent migrant from the Puget_EVEN population into the Koppen_EVEN population.
+Laboratory explanation: sample mix-up due to population mis-labeling
+
+4. Here we analyzed all six populations together. Would it have been useful to perform PCA on the data from each population separately? What would that reveal? 
+That would have revealed the main axes of within-population variation in each population, but it wouldn’t have been informative if we were interested in between-population variation.
+
+
+4_calculate_r2
+
+1. What does the r2 statistic measure? How is r2 related to D?
+
+r2 is the squared correlation in allele frequencies between two loci. It is a measure of linkage disequilibrium.
+If we let the frequency of an allele X at a locus be equal to f_X, then r^2 is also equal to D^2/(f_A*f_a*f_B*f_b) where A and a are the two alleles at one locus and B and b are the two alleles at the other locus. 
+2. How would our estimates of LD have changed if we did not exclude locus pairs on the same chromosome?
+
+If the loci are not unlinked, we cannot treat c to be equal to 0.5. If we hadn’t properly accounted for that, and simply assumed that r^2 = 1/(3Ne) + 1/S, then our estimate of Ne would be deflated (lower than it should be) because we would have included a lot more pairs of sites that are in high LD (high r^2) with each other, which would have inflated our overall estimate of r^2.
+
+3. How is our estimate of LD affected by sample size? 
+Our estimate of LD (r^2) decreases with increasing sample size (see the slides from today’s lecture).
+
+5_estimate_Ne & 6_plot_Ne
+
+1. Which lineage of pink salmon has higher Ne in the north, south, and middle of the range? 
+North (Nome): even
+Middle (Koppen): even
+South (Puget): odd
+
+2. Based on your estimates of effective population size, which population do you expect to have be most affected by genetic drift? Which ones do you expect to be the least affected?
+
+Most affected: Nome_odd, Koppen_odd, Puget_even
+Least affected: Nome_even, Koppen_even, Puget_odd 
+3. What more would you want to research about the pink salmon populations in order to understand the Ne/Nc ratios? 
+Differences in sex ratios between the populations; differences in breeding structure or age structure; other violations in assumption of random mating in each population; possibility of recent external immigrants being present in some of the populations; biases in sampling of observed individuals; biases in sampling of genotyped individuals, etc.
+
+Perspectives
+
+1. What is the difference between a population's Ne and Nc. Why are both important when seeking to underestand population dynamics? 
+Nc is the census size. It reflects the actual number of individuals observed in a population. Ne is the effective population size. It reflects the size of an idealized Wright-Fisher population that would have the same LD patterns as the observed populations.
+
+2. Can you calculate the relative signal (due to Ne) and the noise (due to sample size?) in the mean r2 value? 
+Yes, because we have the sample size S, so we can compute 1/S (noise due to sample size) and substract it from the mean r^2 value (to get the relative signal due to Ne).
+
+3. How would recent migration into a population affect estimates of LD and Ne? 
+There is no wrong answer to this question. Estimates of LD (and therefore estimates of Ne based on LD) can either increase or decrease. The relationship between migration and LD is non-monotonic. For low amounts of migration, LD will increase and therefore estimates of Ne will decrease (due to the two-locus Wahlund effect). For higher amounts of migration, LD will decrease and therefore estimates of Ne will increase (because there is a higher availability of parents from which to sample offspring in the next generation). This paper shows this phenomenon via simulations (e.g. Figure 5): http://www.genetics.org/content/genetics/189/2/633.full.pdf
+
+4. Given time and money how would you improve this analysis - more samples? more loci? more populations?
+
+Up to you how you answer it. But think carefully about what you would gain from adding more of any of these. 

@@ -1,0 +1,49 @@
+---
+title: "Effective Population Size and Demography: Morning"
+author: "Mahdi Robbani"
+date: "February 25, 2020"
+output: html_document
+---
+
+# Estimation of recent effective population size in pink salmon
+
+## Part 1: Filter the data
+
+```{bash, eval = FALSE}
+plink --bfile ./data/pink_salmon --autosome-num 26 --not-chr 0 --make-bed --out ./work/pink_salmon.clean
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Koppen_ODD --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Koppen_ODD
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Koppen_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Koppen_EVEN
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Nome_ODD --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Nome_ODD
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Nome_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Nome_EVEN
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Puget_ODD --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Puget_ODD
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Puget_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Puget_EVEN
+```
+
+### Questions
+
+1. **Check the text produced by running plink on your files. What are the sample sizes and number of loci used in the analysis of each population, why do they differ?**
+    
+    Koppen_odd: 2018 variants and 24 samples  
+Koppen_even: 1662 variants and 24 samples  
+Nome_odd: 1669 variants and 24 samples  
+Nome_even: 1111 variants and 20 samples  
+Puget_odd: 1789 variants and 24 samples  
+Puget_even: 1091 variants and 24 samples  
+The genotyping rate is different for different populations, there are different amounts of missing data in each individual’s sequence data.  
+
+2. **Check the text produced by running plink on your files. What are the reasons that some variants are removed in this filtering step? Why do you think it’s important to remove them? See here for an explanation of all the filters implemented in plink: https://www.cog-genomics.org/plink/1.9/filter**
+
+    We want to filter for variants that are unlikely to be true polymorphisms or whose allele frequencies may be misspecified. Variants that fail the Hardy-Weinberg exact test have a strong excess or depletion of heterozygotes, which is an indication of lots of sequencing error at a particular locus. Variants with too low of a minor allele frequency are more likely than other sites to be sequencing errors at an invariant site.
+
+3. **Why is it important to separate each population before calculating LD?**
+
+    Because LD will be artificially increased in the presence of population stratification, i.e. the two-locus Wahlund effect.
+
+# Part 2: Do PCA
+
+```{bash, eval = FALSE}
+plink --bfile ./data/pink_salmon --autosome-num 26 --maf 0.1 --pca 3 --out ./work/pink_data.initial
+plink --bfile ./work/pink_salmon.clean --autosome-num 26 --maf 0.1 --pca 3 --out ./work/pink_salmon.clean
+```
+
+## Question 1: Is there a lot of variation across the ten simulations?

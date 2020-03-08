@@ -1,0 +1,27 @@
+---
+title: "Effective Population Size and Demography: Afternoon"
+author: "Mahdi Robbani"
+date: "February 25, 2020"
+output: html_document
+---
+
+# Part 1: Perform similations
+
+Use fastsimcoal to perform simulations on the 3 .par files. Constant1 represents a constant population, Delcine 1 represents a declining population and Expand1 represents an increasing ppulation.
+
+```{bash}
+fsc26 -i constant1.par -n10 -X -s0 -I -T -d
+fsc26 -i decline1.par -n10 -X -s0 -I -T -d
+fsc26 -i expand1.par -n10 -X -s0 -I -T -d
+```
+
+# Part 2: Plot sfs
+
+```{r}
+constant<-read.table("constant1_DAFpop0.obs", skip=2) #read in the constant.sfs.
+constant1.sfs<-as.matrix(constant[,2:10]) #extract the variable sites from the ten sfs.
+norm1.constant<-apply(constant1.sfs,1,function(x) x/sum(x)) #getting proportions instead of counts.
+barplot(norm1.constant, be=T, main="10 SFS's from a constant population, simulating 100 x 10,000bp", ylim=c(0, 0.5), ylab="Proportion of sites") #plot the sfs.
+```
+
+## Question 1: Is there a lot of variation across the ten simulations?

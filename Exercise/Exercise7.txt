@@ -1,0 +1,13 @@
+Q1: Is there a difference between expected and observed?
+Yes, the homoygote proportion will be larger because ofthe Wuhland effect.
+
+Q2: Which subspecies are represented in the data and how many individuals are there from each?
+3 subspecies = {Schwein:11, Trogl:12, Verus:6}
+
+Q3 -> 0.3412
+Each row is an SNP
+each coli\umn is an individual -> 3 species 
+plinkfile -> combination of bed, fam and bim
+0 -> Homozygous for reference
+1 -> heterozygus
+2 -> Homo alternate
