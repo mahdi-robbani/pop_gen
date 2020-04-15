@@ -9,6 +9,11 @@ output: html_document
 
 ## Part 1: Filter the data
 
+>Load Binary files with plink  
+Plink assumesyou are using data, so you have to tell it, salmos have 26 autosomes, exclude chromosome 0  
+Separate by family ID (first column of fam file)  
+Filter: SNPs with minor allele frequency < 0.05 (maf), missing call frequencies > 0.02 (geno) and HWE p value < 0.001
+
 ```{bash, eval = FALSE}
 plink --bfile ./data/pink_salmon --autosome-num 26 --not-chr 0 --make-bed --out ./work/pink_salmon.clean
 plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Koppen_ODD --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Koppen_ODD
@@ -17,6 +22,9 @@ plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster
 plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Nome_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Nome_EVEN
 plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Puget_ODD --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Puget_ODD
 plink --bfile ./work/pink_salmon.clean --autosome-num 26 --family --keep-cluster-names Puget_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Puget_EVEN
+
+
+plink --bfile ./work/pink_salmon.clean --family --keep-cluster-names Puget_EVEN --hwe .001 --geno 0.02 --maf 0.05 --make-bed --out ./work/Puget_EVEN
 ```
 
 ### Questions
@@ -41,9 +49,275 @@ The genotyping rate is different for different populations, there are different 
 
 # Part 2: Do PCA
 
+> Use plink to create eigenvalues and eigenvectors for pca1-3  
+
 ```{bash, eval = FALSE}
 plink --bfile ./data/pink_salmon --autosome-num 26 --maf 0.1 --pca 3 --out ./work/pink_data.initial
 plink --bfile ./work/pink_salmon.clean --autosome-num 26 --maf 0.1 --pca 3 --out ./work/pink_salmon.clean
 ```
 
-## Question 1: Is there a lot of variation across the ten simulations?
+> Use R to plot eigenvalues and vectors
+
+```{r, eval = FALSE}
+# Options for the notebook 
+options(jupyter.plot_mimetypes = "image/png") 
+options(repr.plot.width = 6, repr.plot.height = 6)
+
+read_pca_output <- function(path){
+    pca_df = read.table(path)
+    names(pca_df) = c('Population', 'Individual', 'PC1', 'PC2', 'PC3')
+    # enforce the order of populations
+    pca_df$Population <- factor(pca_df$Population , levels =c('Nome_ODD','Nome_EVEN', 'Koppen_ODD', 'Koppen_EVEN', 'Puget_ODD', 'Puget_EVEN'))
+    pca_df = pca_df[order(pca_df$Population),]
+    return(pca_df)
+}
+
+plot_pca_basic <- function(pca_df, title){
+    plot(pca_df$PC1 , pca_df$PC2, col = pca_df$Population, pch = 16, main = title)
+    legend(x="topleft", legend = levels(pca_df$Population), fill = palette()[1:6])
+}
+
+# unused - example how to make a scatteplot in ggplot2
+plot_pca_ggplot <- function(pca_df){
+    library(ggplot2)
+    p = ggplot(data = pca_df, aes(x = PC1, y = PC2))
+    p = p + geom_point(aes(colour = Population))
+    p = p + theme_classic()
+    return(p)
+}
+
+pca_initial = read_pca_output('./work/pink_data.initial.eigenvec')
+head(pca_initial)
+
+pca_clean = read_pca_output('./work/pink_salmon.clean.eigenvec')
+head(pca_clean)
+
+# Make some plots and save them to a file
+
+png("./plots/PCA.pink_salmon.inital.png")
+plot_pca_basic(pca_initial, title = 'pink_salmon.inital')
+dev.off()
+
+png("./plots/PCA.pink_salmon.clean.png")
+plot_pca_basic(pca_clean, title = 'pink_salmon.clean')
+dev.off()
+
+print("Done plotting PCAs")
+
+```
+
+
+### Questions
+
+1. **What is shown in the first few axes of the PCA projection? What does each dot represent?**
+
+    The first few axes represent the strongest components of variation in our genetic data. Each dot is a projection of each of the genotyped individuals into these axes.
+    
+2. **Describe the differences between the two PCAs (before and after filtering). How are they different? How are they similar?**
+
+    The population clusters are closer to each other, but their relative positions remain roughly the same.
+    
+3. **Why do you think there is a Puget_EVEN individual that is projected near the the Koppen_EVEN individuals?**
+    - Biological explanation: recent migrant from the Puget_EVEN population into the Koppen_EVEN population.
+    - Laboratory explanation: sample mix-up due to population mis-labeling
+    
+4. **Here we analyzed all six populations together. Would it have been useful to perform PCA on the data from each population separately? What would that reveal?**
+
+    That would have revealed the main axes of within-population variation in each population, but it wouldn't have been informative if we were interested in between-population variation.
+
+
+# Part 3: Calculate $r^2$ (LD)
+
+> Calculate LD. --r2 returns squared LD values (I think square returns a square matrix)
+
+```{bash, eval = FALSE}
+plink --bfile ./work/Koppen_ODD --autosome-num 26 --r2 square --out ./work/Koppen_ODD
+plink --bfile ./work/Koppen_EVEN --autosome-num 26 --r2 square --out ./work/Koppen_EVEN
+plink --bfile ./work/Nome_ODD --autosome-num 26 --r2 square --out ./work/Nome_ODD
+plink --bfile ./work/Nome_EVEN --autosome-num 26 --r2 square --out ./work/Nome_EVEN
+plink --bfile ./work/Puget_ODD --autosome-num 26 --r2 square --out ./work/Puget_ODD
+plink --bfile ./work/Puget_EVEN --autosome-num 26 --r2 square --out ./work/Puget_EVEN
+```
+
+### Questions
+
+1. **What does the $r^2$ statistic measure? How is $r^2$ related to D?**
+
+    $r^2$ is the squared correlation in allele frequencies between two loci. It is a measure of linkage disequilibrium. If we let the frequency of an allele X at a locus be equal to $f_X$, then $r^2$ is also equal to $D^2/(f_A*f_a*f_B*f_b)$ where A and a are the two alleles at one locus and B and b are the two alleles at the other locus.
+
+2. **How would our estimates of LD have changed if we did not exclude locus pairs on the same chromosome?**
+
+    If the loci are not unlinked, we cannot treat c to be equal to 0.5. If we hadn't properly accounted for that, and simply assumed that $r^2 = 1/(3Ne) + 1/S$, then our estimate of Ne would be deflated (lower than it should be) because we would have included a lot more pairs of sites that are in high LD (high $r^2$) with each other, which would have inflated our overall estimate of $r^2$.
+
+3. **How is our estimate of LD affected by sample size?**
+
+    Our estimate of LD ($r^2$) decreases with increasing sample size (see the slides from today's lecture). LD consists of a signal (true variation caused from linkage between SNPs) and noise (variation caused by sampling) and a large sample reduces the noise. Equation: $r^2 = 1/(3Ne) + 1/S$ where S is the sample size and 1/S is the noise.
+
+# Part 5: Estimate $N_e$ and plot $N_e$
+
+> Estimate  $N_e$ (Effective population)
+
+```{r, eval = FALSE}
+
+source('./scripts/R_functions.r')
+
+# Make an empty data frame to store the results
+DF <- data.frame(Pop=rep(NA, 6), Site=rep(NA, 6), Lineage=rep(NA, 6), Ne_est=rep(NA, 6))
+
+# Calculate 
+Pops = c('Nome_ODD','Nome_EVEN', 'Koppen_ODD', 'Koppen_EVEN', 'Puget_ODD', 'Puget_EVEN')
+
+for (index in 1:6){
+    POP = Pops[index]
+    site = strsplit(POP, split = '_')[[1]][1]
+    lin = strsplit(POP, split = '_')[[1]][2]
+    res = get_Ne(base_path = paste("./work/", POP, sep = ''))
+    DF[index, ] = c(POP, site, lin, res$Ne_est)
+}
+
+# take a look at the results 
+DF
+
+write.table(DF, "./work/Ne_estimates.txt", sep = '\t', quote = FALSE, row.names = FALSE)
+
+```
+
+> Plot $N_e$ and $N_c$ estimates
+
+```{r, eval=FALSE}
+# Load in the Ne and Nc estimates
+
+Ne = read.table("./work/Ne_estimates.txt",sep = '\t', header = TRUE)
+Nc = read.table("./data/Nc_estimates.txt",sep = '\t', header = TRUE)
+
+Ne
+
+Nc
+
+## Use the merge command to join them
+
+estimates = merge(Ne, Nc)
+estimates
+
+estimates$ratio = estimates$Ne_est / estimates$Nc_est
+# reorder to match input order
+estimates$Pop <- factor(estimates$Pop , levels =c('Nome_ODD','Nome_EVEN', 'Koppen_ODD', 'Koppen_EVEN', 'Puget_ODD', 'Puget_EVEN'))
+estimates = estimates[order(estimates$Pop),]
+estimates
+
+for_barplot = data.matrix(t(estimates[,c('Ne_est', 'Nc_est')]))
+colnames(for_barplot) = estimates$Pop
+
+for_ratio_barplot = data.matrix(t(estimates[,'ratio']))
+colnames(for_ratio_barplot) = estimates$Pop
+
+
+png('./plots/Ne_estimates.png')
+par(mar=c(10,4,4,2))
+barplot(for_barplot['Ne_est',], col = "white", beside = TRUE, las=2, #axes = FALSE, 
+       main = "Ne estimates for each population",ylab = 'Ne')
+dev.off()
+
+png('./plots/Ne_and_Nc_estimates.png')
+par(mar=c(10,4,4,2))
+
+barplot(for_barplot, col = c("white","black"), beside = TRUE, las=2, axes = FALSE, 
+       main = "Ne and Nc estimates for each population",ylab = 'Size')
+axis(side = 2, at = c(100, 10000, 500000, 1000000, 1500000))
+legend("top",
+  c("Ne_est","Nc_est"),
+  fill = c("white","black")
+)
+dev.off()
+
+# same plot with a log y axis
+png('./plots/Ne_and_Nc_estimates_log-scaled.png')
+par(mar=c(10,4,4,2))
+barplot(for_barplot, col = c("white","black"), beside = TRUE, las=2, 
+        log = 'y', axes = FALSE, ylim = c(100,1400000), 
+       main = "Ne and Nc estimates for each population",ylab = 'Size (log scaled)')
+axis(side = 2, at = c(100, 10000, 500000, 1000000, 1500000))
+legend("top",
+  c("Ne_est","Nc_est"),
+  fill = c("white","black")
+)
+dev.off()
+
+png('./plots/Ne-Nc_ratios.png')
+par(mar=c(10,4,4,2))
+barplot(for_ratio_barplot, col = "gray", beside = TRUE, las=2, #axes = FALSE, 
+       main = "Ne/Nc ratios for each population",ylab = 'Ne/Nc ratio')
+dev.off()
+
+source('./scripts/R_functions.r')
+
+Ne_Nome_ODD = get_Ne('./work/Nome_ODD')
+Ne_Nome_EVEN = get_Ne('./work/Nome_EVEN')
+Ne_Koppen_ODD = get_Ne('./work/Koppen_ODD')
+Ne_Koppen_EVEN = get_Ne('./work/Koppen_EVEN')
+Ne_Puget_ODD = get_Ne('./work/Puget_ODD')
+Ne_Puget_EVEN = get_Ne('./work/Puget_EVEN')
+
+png('./plots/LD_Nome_ODD.png', width=nrow(Ne_Nome_ODD$r2_matrix),height=nrow(Ne_Nome_ODD$r2_matrix))
+image(Ne_Nome_ODD$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+
+png('./plots/LD_Nome_EVEN.png', width=nrow(Ne_Nome_EVEN$r2_matrix),height=nrow(Ne_Nome_EVEN$r2_matrix))
+image(Ne_Nome_EVEN$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+
+png('./plots/LD_Koppen_ODD.png', width=nrow(Ne_Koppen_ODD$r2_matrix),height=nrow(Ne_Koppen_ODD$r2_matrix))
+image(Ne_Koppen_ODD$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+
+png('./plots/LD_Koppen_EVEN.png', width=nrow(Ne_Koppen_EVEN$r2_matrix),height=nrow(Ne_Koppen_EVEN$r2_matrix))
+image(Ne_Koppen_EVEN$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+
+png('./plots/LD_Puget_ODD.png', width=nrow(Ne_Puget_ODD$r2_matrix),height=nrow(Ne_Puget_ODD$r2_matrix))
+image(Ne_Puget_ODD$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+
+png('./plots/LD_Puget_EVEN.png', width=nrow(Ne_Puget_EVEN$r2_matrix),height=nrow(Ne_Puget_EVEN$r2_matrix))
+image(Ne_Puget_EVEN$r2_matrix, axes = FALSE, col = rev(heat.colors(256)))
+dev.off()
+```
+
+
+### Questions
+
+1. **Which lineage of pink salmon has higher $N_e$ in the north, south, and middle of the range?**
+    - North (Nome): even
+    - Middle (Koppen): even
+    - South (Puget): odd
+    
+2. **Based on your estimates of effective population size, which population do you expect to have be most affected by genetic drift? Which ones do you expect to be the least affected?**
+    - Most affected: Nome_odd, Koppen_odd, Puget_even
+    - Least affected: Nome_even, Koppen_even, Puget_odd
+
+3. **What more would you want to research about the pink salmon populations in order to understand the Ne/Nc ratios?**
+
+    Differences in sex ratios between the populations; differences in breeding structure or age structure; other violations in assumption of random mating in each population; possibility of recent external immigrants being present in some of the populations; biases in sampling of observed individuals; biases in sampling of genotyped individuals, etc.
+    
+# Perspectives
+
+### Questions
+
+1. **What is the difference between a population's Ne and Nc. Why are both important when seeking to underestand population dynamics?**
+
+    Nc is the census size. It reflects the actual number of individuals observed in a population. Ne is the effective population size. It reflects the size of an idealized Wright-Fisher population that would have the same LD patterns as the observed populations.
+
+2. **Can you calculate the relative signal (due to Ne) and the noise (due to sample size?) in the mean r2 value?**
+
+    Yes, because we have the sample size S, so we can compute 1/S (noise due to sample size) and substract it from the mean r^2 value (to get the relative signal due to Ne).
+
+3. **How would recent migration into a population affect estimates of LD and Ne?**
+
+    There is no wrong answer to this question. Estimates of LD (and therefore estimates of Ne based on LD) can either increase or decrease. The relationship between migration and LD is non-monotonic. For low amounts of migration, LD will increase and therefore estimates of Ne will decrease (due to the two-locus Wahlund effect). For higher amounts of migration, LD will decrease and therefore estimates of Ne will increase (because there is a higher availability of parents from which to sample offspring in the next generation). This paper shows this phenomenon via simulations (e.g. Figure 5): http://www.genetics.org/content/genetics/189/2/633.full.pdf
+    
+4. **Given time and money how would you improve this analysis - more samples? more loci? more populations?**
+
+    Up to you how you answer it. But think carefully about what you would gain from adding more of any of these.
+
+
+
